@@ -69,11 +69,15 @@ def generate_launch_description():
             namespace='',
             executable='create',
             name='spawn_bookshelft',
-            arguments=['-file', [os.path.join(get_package_share_directory('wpr_simulation2'), 'models', 'bookshelft.model')] , 
-            '-name', 'bookshelft_01',
-            '-x', '3.0',
-            '-y', '0.0',
-            '-Y', '3.1415926']
+            arguments=[
+                '-file', os.path.join(get_package_share_directory('wpr_simulation2'), 'models', 'bookshelft.model'),
+                '-name', 'bookshelft_01',
+                '-x', '3.0',
+                '-y', '0.0',
+                '-z', '0.3',
+                '-Y', '3.1415926'
+            ],
+            output='screen'
         )
 
     rviz_cmd = Node(

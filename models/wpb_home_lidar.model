@@ -399,6 +399,15 @@
     <covariance_y>0.0001</covariance_y>
     <covariance_yaw>0.01</covariance_yaw>
   </plugin>
+</gazebo>
+
+<!-- Disable gravity on base_link for planar motion plugin -->
+<gazebo reference="base_link">
+  <gravity>false</gravity>
+</gazebo>
+
+<gazebo reference="base_footprint">
+  <gravity>false</gravity>
 </gazebo> 
 
 <!-- Gazebo plugin for IMU -->

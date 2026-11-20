@@ -2,19 +2,44 @@
 
 ## 修复内容 ✅
 
-已成功修复 **Robot not move** 问题，通过添加 `ros_gz_bridge` 建立 ROS 和 Gazebo 之间的通信桥接。
+已成功修复以下问题：
 
-### 问题原因
-- 机器人模型内部有 Gazebo 插件 (`libros_gz_sim_planar_move.so`) 订阅 `/cmd_vel` 话题
-- 但缺少 `ros_gz_bridge` 节点来桥接 ROS Twist 消息和 Gazebo Twist 消息
+### 1️⃣ Robot not move（机器人不动）
+**原因**: 缺少 `ros_gz_bridge` 节点连接 ROS 和 Gazebo
 
-### 修复方案
-在 `launch/wpb_simple.launch.py` 中添加了 `ros_gz_bridge` 节点，实现以下映射：
-
+**修复**: 在 `launch/wpb_simple.launch.py` 中添加了 `parameter_bridge` 节点
 ```
-ROS /cmd_vel (geometry_msgs/Twist) ←→ Gazebo /cmd_vel (gz.msgs.Twist)
-Gazebo /odom (gz.msgs.Odometry) ←→ ROS /odom (nav_msgs/Odometry)
-Gazebo /clock (gz.msgs.Clock) ←→ ROS /clock (rosgraph_msgs/Clock)
+ROS /cmd_vel ←→ Gazebo /cmd_vel
+Gazebo /odom ←→ ROS /odom
+Gazebo /clock ←→ ROS /clock
+```
+
+### 2️⃣ Robot sinking to ground（机器人沉到地上）
+**原因**: `libros_gz_sim_planar_move` 插件使用直接位置控制，不适合重力模拟
+
+**修复**: 在 `models/wpb_home_lidar.model` 中禁用基座链接的重力
+```xml
+<gazebo reference="base_link">
+  <gravity>false</gravity>
+</gazebo>
+<gazebo reference="base_footprint">
+  <gravity>false</gravity>
+</gazebo>
+```
+
+### 3️⃣ Obstacle disappearing（障碍物消失）
+**原因**: 对象生成路径格式错误，参数列表嵌套不当
+
+**修复**: 在 `launch/wpb_simple.launch.py` 中修复了障碍物生成的参数格式和添加了 Z 坐标
+```python
+arguments=[
+    '-file', os.path.join(..., 'bookshelft.model'),  # 路径不嵌套在列表中
+    '-name', 'bookshelft_01',
+    '-x', '3.0',
+    '-y', '0.0',
+    '-z', '0.3',  # 确保正确的高度
+    '-Y', '3.1415926'
+]
 ```
 
 ---
@@ -35,12 +60,19 @@ source /home/user/wpr_WS/install/setup.bash
 ros2 launch wpr_simulation2 wpb_simple.launch.py
 ```
 
-输出应该包含：
+**预期输出（表示成功）**：
 ```
+[create-3] [INFO] Entity creation successful.          # Robot
+[create-4] [INFO] Entity creation successful.          # Bookshelf
 [parameter_bridge-5] [INFO] Creating ROS->GZ Bridge: [/cmd_vel ...]
 [parameter_bridge-5] [INFO] Creating GZ->ROS Bridge: [/odom ...]
 [parameter_bridge-5] [INFO] Creating GZ->ROS Bridge: [/clock ...]
 ```
+
+在 Gazebo 窗口中应该看到：
+- ✅ 机器人圆柱体悬浮在空中（不沉到地上）
+- ✅ 书架障碍物在位置 (3.0, 0.0, 0.3)
+- ✅ 灰色地面
 
 ### 3️⃣ 控制机器人移动
 **终端2** - 使用键盘控制：
@@ -49,18 +81,18 @@ source /home/user/wpr_WS/install/setup.bash
 ros2 run wpr_simulation2 keyboard_vel_cmd
 ```
 
-**键盘命令：**
-- `w` - 前进（加速）
-- `s` - 后退（加速）
-- `a` - 左移（加速）
-- `d` - 右移（加速）
-- `q` - 左转（加速）
-- `e` - 右转（加速）
-- `space` - 停止
-- `x` - 退出
+**键盘命令**：
+```
+w - 前进（加速）         s - 后退（加速）
+a - 左移（加速）         d - 右移（加速）
+q - 左转（加速）         e - 右转（加速）
+space - 停止             x - 退出
+```
 
-### 4️⃣ 验证运动
-**终端3** - 查看话题和里程表数据：
+现在机器人应该在 Gazebo 中平滑地移动！🤖
+
+### 4️⃣ 验证和监控
+**终端3** - 查看数据：
 ```bash
 source /home/user/wpr_WS/install/setup.bash
 
@@ -70,7 +102,7 @@ ros2 topic list
 # 实时查看速度命令
 ros2 topic echo /cmd_vel
 
-# 实时查看里程表（机器人位置）
+# 实时查看里程表（机器人位置和速度）
 ros2 topic echo /odom
 
 # 实时查看激光扫描
@@ -81,29 +113,12 @@ ros2 topic echo /scan
 
 ## 验证清单
 
-✅ **桥接状态** - 检查 ros_gz_bridge 是否运行：
-```bash
-ros2 node list | grep bridge
-# 输出: /ros_gz_bridge
-```
-
-✅ **话题连接** - 检查 `/cmd_vel` 是否有订阅者：
-```bash
-ros2 topic info /cmd_vel
-# 输出应该显示有订阅者
-```
-
-✅ **里程表输出** - 检查 `/odom` 是否发布数据：
-```bash
-ros2 topic echo /odom -n 1
-# 应该显示位置和速度信息
-```
-
-✅ **实时测试** - 直接发送速度命令：
-```bash
-ros2 topic pub /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.5}, angular: {z: 0.0}}'
-# 机器人应该在 Gazebo 中移动
-```
+| 检查项 | 命令 | 预期结果 |
+|------|------|--------|
+| **桥接状态** | `ros2 node list \| grep bridge` | `/ros_gz_bridge` |
+| **话题连接** | `ros2 topic info /cmd_vel` | 有订阅者 (1 subscriber) |
+| **里程表** | `ros2 topic echo /odom -n 1` | 显示位置和速度信息 |
+| **实时测试** | `ros2 topic pub /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.5}}'` | 机器人在 Gazebo 中移动 |
 
 ---
 
@@ -111,45 +126,62 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist '{linear: {x: 0.5}, angular: {z:
 
 ### Q: 机器人仍然不动？
 **A:** 检查以下几点：
-1. 确保编译后运行 `source install/setup.bash`
-2. 检查 Gazebo 窗口中是否加载了机器人（应该看到圆柱体机器人）
-3. 检查终端日志中是否有错误信息
-4. 确保 `ros_gz_bridge` 节点正在运行
+1. ✓ 确保编译后运行 `source install/setup.bash`
+2. ✓ 检查 Gazebo 窗口中是否加载了机器人（应该看到悬浮的圆柱体）
+3. ✓ 检查终端日志中是否有错误信息
+4. ✓ 确保 `ros_gz_bridge` 节点正在运行
 
 ### Q: 看不到机器人模型？
-**A:** 机器人可能生成失败，检查：
+**A:** 机器人可能生成失败，检查日志：
 ```bash
-# 查看生成日志
-ros2 service call /spawn_entity ros_gz_sim/srv/CreateEntity '...'
+# 查看完整输出
+ros2 launch wpr_simulation2 wpb_simple.launch.py 2>&1 | grep -E "Entity|ERROR|ERROR"
+```
+
+### Q: 机器人还是沉到地上？
+**A:** 确保修改已生效：
+```bash
+# 检查模型文件中是否有重力禁用配置
+grep -A 2 "reference=\"base_link\"" models/wpb_home_lidar.model | grep gravity
 ```
 
 ### Q: 键盘控制没有响应？
 **A:** 检查：
-1. 话题是否发布：`ros2 topic echo /cmd_vel`
-2. 是否有订阅者：`ros2 topic info /cmd_vel`
-3. 尝试重启 `keyboard_vel_cmd` 节点
+1. ✓ 话题是否发布：`ros2 topic echo /cmd_vel`
+2. ✓ 是否有订阅者：`ros2 topic info /cmd_vel`
+3. ✓ 尝试重启 `keyboard_vel_cmd` 节点
+
+### Q: 障碍物看不见？
+**A:** 检查生成日志：
+```bash
+# 在启动输出中查找
+grep -i "bookshelft" /path/to/launch/output
+# 应该显示 "Entity creation successful"
+```
 
 ---
 
 ## 修改的文件
 
-📝 **launch/wpb_simple.launch.py**
-- 添加了 `ros_gz_bridge` 参数桥接节点
-- 配置了 `/cmd_vel`, `/odom`, `/clock` 话题的双向桥接
+| 文件 | 修改内容 |
+|------|--------|
+| `launch/wpb_simple.launch.py` | 添加 ros_gz_bridge + 修复障碍物生成参数 |
+| `models/wpb_home_lidar.model` | 禁用基座重力（防止沉地） |
+
+---
 
 ## 技术细节
 
-### ros_gz_bridge 话题映射格式
+### libros_gz_sim_planar_move 插件
+- **功能**: 直接控制平面运动（2D + 旋转）
+- **特点**: 不受物理引擎影响，适合移动机器人
+- **限制**: 需要禁用重力和碰撞物理
+
+### ros_gz_bridge 话题映射
 ```
 /topic_name@ROS_MsgType]GZ_MsgType     # ROS to Gazebo
 /topic_name@ROS_MsgType[GZ_MsgType     # Gazebo to ROS (双向)
 ```
-
-### 机器人插件
-- **base_controller** (`libros_gz_sim_planar_move.so`) - 处理平面运动
-- **laser_link** (`libros_gz_sim_ray_sensor.so`) - LIDAR 传感器
-- **kinect2** (`libros_gz_sim_camera.so`) - 深度摄像头
-- **imu_sensor** (`libros_gz_sim_imu_sensor.so`) - IMU 传感器
 
 ---
 
@@ -158,3 +190,4 @@ ros2 service call /spawn_entity ros_gz_sim/srv/CreateEntity '...'
 - [ROS 2 Gazebo Bridge 文档](https://github.com/gazebosim/ros_gz)
 - [ROS 2 话题通信](https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Topics/Understanding-ROS2-Topics.html)
 - 项目 README: [README.md](README.md)
+
