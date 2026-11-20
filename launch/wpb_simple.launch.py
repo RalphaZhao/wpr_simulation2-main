@@ -84,6 +84,22 @@ def generate_launch_description():
             arguments=['-d', [os.path.join(get_package_share_directory('wpr_simulation2'), 'rviz', 'sensor.rviz')]]
         )
 
+    # Bridge to connect ROS topics with Gazebo
+    ros_gz_bridge_cmd = Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='ros_gz_bridge',
+            output='screen',
+            arguments=[
+                # Twist messages - subscribe to ROS Twist and send to Gazebo
+                '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+                # Odometry messages - subscribe from Gazebo and send to ROS
+                '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                # Clock messages - subscribe from Gazebo to sync time
+                '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+            ]
+        )
+
     ld = LaunchDescription()
 
     # Add the commands to the launch description
@@ -92,6 +108,7 @@ def generate_launch_description():
     # ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_robot_cmd)
     ld.add_action(spawn_bookshelft)
+    ld.add_action(ros_gz_bridge_cmd)
     # ld.add_action(rviz_cmd)
 
     return ld
