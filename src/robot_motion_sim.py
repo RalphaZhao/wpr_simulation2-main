@@ -5,9 +5,12 @@ Robot motion simulator - converts cmd_vel to Gazebo twist updates
 
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist, Pose
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import math
+from gz.transport13 import Node as GazeboNode
+from gz.msgs10.pose_pb2 import Pose as GazeboPose
+from gz.msgs10.boolean_pb2 import Boolean
 
 def euler_to_quaternion(roll, pitch, yaw):
     """Convert Euler angles to quaternion"""
@@ -49,19 +52,11 @@ class RobotMotionSim(Node):
         
         self.odom_pub = self.create_publisher(
             Odometry, '/odom', 10)
-        
-        # Publisher for Gazebo entity pose (using Gazebo native topics)
-        # Gazebo Sim expects pose updates on /model/<model_name>/pose topic
-        self.gazebo_pose_pub = self.create_publisher(
-            Pose, '/model/wpb_home/pose', 10)
-        
-        # Publisher for velocity commands to Gazebo
-        self.gazebo_vel_pub = self.create_publisher(
-            Twist, '/model/wpb_home/cmd_vel', 10)
-        
-        # Also publish to /cmd_vel for Gazebo's planar_move plugin
-        self.cmd_vel_pub = self.create_publisher(
-            Twist, '/cmd_vel', 10)
+
+        # Gazebo Transport 节点，用于调用世界服务修改模型位姿。
+        self.gz_node = GazeboNode()
+        # Gazebo Harmonic 中设置指定模型世界位姿的服务地址。
+        self.gz_set_pose = '/world/default/set_pose'
         
         # Timer for publishing odometry
         self.timer = self.create_timer(0.05, self.publish_odom_and_velocity)  # 20Hz
@@ -70,58 +65,46 @@ class RobotMotionSim(Node):
         
         self.get_logger().info('Robot motion simulator started')
         self.get_logger().info('  - Subscribing to: /cmd_vel')
-        self.get_logger().info('  - Publishing to: /odom, /model/wpb_home/pose, /model/wpb_home/cmd_vel, /cmd_vel')
+        self.get_logger().info('  - Publishing to: /odom')
+        self.get_logger().info('  - Moving Gazebo model: wpv3')
     
     def cmd_vel_callback(self, msg):
         """Handle velocity commands from keyboard or other source"""
         self.vx = msg.linear.x
         self.vy = msg.linear.y
         self.vtheta = msg.angular.z
-        
-        current_time = self.get_clock().now()
-        
+
         # Initialize on first callback
         if self.last_update is None:
             self.get_logger().info(f'[CMD] First cmd_vel: vx={self.vx:.2f}, vtheta={self.vtheta:.2f}')
-            self.last_update = current_time
-            return
-        
-        # Calculate dt from last update
-        dt = (current_time - self.last_update).nanoseconds / 1e9
-        self.last_update = current_time
-        
-        # Skip updates with invalid dt
-        if dt <= 0:
-            return
-        
-        # Clamp dt
-        if dt > 2.0:
-            dt = 2.0
-        
-        # Update odometry based on kinematics
-        if abs(self.vtheta) < 0.001:
-            # Pure translation
-            self.x += self.vx * math.cos(self.theta) * dt
-            self.y += self.vx * math.sin(self.theta) * dt
-        else:
-            # Rotation and translation
-            radius = self.vx / self.vtheta if abs(self.vtheta) > 0.001 else 0
-            if abs(radius) > 0.001:
-                self.x += radius * (math.sin(self.theta + self.vtheta * dt) - 
-                                   math.sin(self.theta))
-                self.y -= radius * (math.cos(self.theta + self.vtheta * dt) - 
-                                   math.cos(self.theta))
-            
-        self.theta += self.vtheta * dt
-        self.theta = math.atan2(math.sin(self.theta), math.cos(self.theta))
-        
-        # Log motion
-        if abs(self.vx) > 0.001 or abs(self.vtheta) > 0.001:
-            self.get_logger().info(f'[ODOM] x={self.x:.2f}, y={self.y:.2f}, theta={self.theta:.2f}')
+            self.last_update = self.get_clock().now()
     
     def publish_odom_and_velocity(self):
         """Publish odometry and forward velocity commands to Gazebo"""
         current_time = self.get_clock().now()
+
+        if self.last_update is not None:
+            dt = (current_time - self.last_update).nanoseconds / 1e9
+            if 0 < dt <= 0.2:
+                if abs(self.vtheta) < 0.001:
+                    self.x += self.vx * math.cos(self.theta) * dt
+                    self.y += self.vx * math.sin(self.theta) * dt
+                else:
+                    radius = self.vx / self.vtheta
+                    self.x += radius * (
+                        math.sin(self.theta + self.vtheta * dt) -
+                        math.sin(self.theta)
+                    )
+                    self.y -= radius * (
+                        math.cos(self.theta + self.vtheta * dt) -
+                        math.cos(self.theta)
+                    )
+                    self.theta += self.vtheta * dt
+                    self.theta = math.atan2(
+                        math.sin(self.theta),
+                        math.cos(self.theta)
+                    )
+        self.last_update = current_time
         
         # Publish odometry
         odom = Odometry()
@@ -159,32 +142,24 @@ class RobotMotionSim(Node):
         
         # Forward commands to Gazebo
         try:
-            # Send position directly to Gazebo
-            pose = Pose()
+            q = euler_to_quaternion(0, 0, self.theta)
+            # GazeboPose 对应 gz.msgs.Pose，用于描述模型的新世界位姿。
+            pose = GazeboPose()
+            pose.name = 'wpv3'
             pose.position.x = self.x
             pose.position.y = self.y
-            pose.position.z = 0.0
-            
-            q = euler_to_quaternion(0, 0, self.theta)
+            pose.position.z = 0.20
             pose.orientation.x = q[0]
             pose.orientation.y = q[1]
             pose.orientation.z = q[2]
             pose.orientation.w = q[3]
-            
-            self.gazebo_pose_pub.publish(pose)
-            
-            # Also send velocity for physics simulation
-            vel_cmd = Twist()
-            vel_cmd.linear.x = self.vx
-            vel_cmd.linear.y = self.vy
-            vel_cmd.linear.z = 0.0
-            vel_cmd.angular.x = 0.0
-            vel_cmd.angular.y = 0.0
-            vel_cmd.angular.z = self.vtheta
-            
-            self.gazebo_vel_pub.publish(vel_cmd)
-            # Publish to /cmd_vel for Gazebo's planar_move plugin
-            self.cmd_vel_pub.publish(vel_cmd)
+            self.gz_node.request(
+                self.gz_set_pose, #'/world/default/set_pose'
+                pose,
+                GazeboPose,  # 请求消息类型：Gazebo 位姿。
+                Boolean,     # 响应消息类型：操作成功或失败。
+                100          # 服务等待超时，单位为毫秒。
+            )
             
             # Debug logging
             self.counter += 1

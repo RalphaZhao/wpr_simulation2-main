@@ -17,7 +17,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription, SetEnvironmentVariable
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -28,7 +28,18 @@ def generate_launch_description():
     pkg_ros_gz_sim = get_package_share_directory('ros_gz_sim')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
-
+    fastdds_udp_profile = SetEnvironmentVariable(
+        name='FASTRTPS_DEFAULT_PROFILES_FILE',
+        value=os.path.join(
+            get_package_share_directory('wpr_simulation2'),
+            'config',
+            'fastdds_udp.xml'
+        )
+    )
+    nvidia_glx_vendor = SetEnvironmentVariable(
+        name='__GLX_VENDOR_LIBRARY_NAME',
+        value='nvidia'
+    )
     world = os.path.join(
         get_package_share_directory('wpr_simulation2'),
         'worlds',
@@ -93,6 +104,8 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     # Add the commands to the launch description
+    ld.add_action(fastdds_udp_profile)
+    ld.add_action(nvidia_glx_vendor)
     ld.add_action(gz_sim_cmd)
     ld.add_action(spawn_robot_cmd)
     # ld.add_action(TimerAction(period=2.0, actions=[spawn_robot_cmd]))
