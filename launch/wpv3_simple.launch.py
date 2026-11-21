@@ -64,7 +64,7 @@ def generate_launch_description():
                 '-name', 'wpv3',
                 '-x', '0.0',
                 '-y', '0.0',
-                '-z', '0.20',
+                # '-z', '0.20',
             ],
             output='screen'
         )
@@ -105,7 +105,7 @@ def generate_launch_description():
 
     # Add the commands to the launch description
     ld.add_action(fastdds_udp_profile)
-    ld.add_action(nvidia_glx_vendor)
+    # ld.add_action(nvidia_glx_vendor)
     ld.add_action(gz_sim_cmd)
     ld.add_action(spawn_robot_cmd)
     # ld.add_action(TimerAction(period=2.0, actions=[spawn_robot_cmd]))
