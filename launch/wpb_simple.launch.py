@@ -95,24 +95,31 @@ def generate_launch_description():
             name='ros_gz_bridge',
             output='screen',
             arguments=[
-                # Twist messages - subscribe to ROS Twist and send to Gazebo
-                '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-                # Odometry messages - subscribe from Gazebo and send to ROS
-                '/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry',
                 # Clock messages - subscribe from Gazebo to sync time
                 '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
+                # Velocity commands - subscribe from ROS, publish to Gazebo
+                '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
+                # Robot pose - subscribe from Gazebo, publish to ROS for TF
+                '/model/wpb_home/pose[gz.msgs.Pose>geometry_msgs/msg/Pose',
             ]
+        )
+
+    # Robot motion simulator - provides odometry from cmd_vel
+    robot_motion_sim_cmd = Node(
+            package='wpr_simulation2',
+            executable='robot_motion_sim.py',
+            name='robot_motion_sim',
+            output='screen'
         )
 
     ld = LaunchDescription()
 
     # Add the commands to the launch description
     ld.add_action(gz_sim_cmd)
-    # ld.add_action(gz_sim_cmd)
-    # ld.add_action(robot_state_publisher_cmd)
     ld.add_action(spawn_robot_cmd)
     ld.add_action(spawn_bookshelft)
     ld.add_action(ros_gz_bridge_cmd)
+    ld.add_action(robot_motion_sim_cmd)
     # ld.add_action(rviz_cmd)
 
     return ld

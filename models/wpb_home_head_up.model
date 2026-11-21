@@ -233,26 +233,15 @@
 
 <!-- Gazebo plugin for mobile base -->
 <gazebo>
-  <plugin name="base_controller" filename="libros_gz_sim_planar_move.so">
-    <ros>
-      <!-- <namespace>/wpb</namespace> -->
-      <remapping>cmd_vel:=cmd_vel</remapping>
-      <remapping>odom:=odom</remapping>
-    </ros>
-    <!-- Set control loop update rate -->
-    <update_rate>100</update_rate>
-    <!-- Set odom publish rate -->
-    <publish_rate>20</publish_rate>
-    <!-- Set if odom required -->
-    <publish_odom>true</publish_odom>
-    <publish_odom_tf>true</publish_odom_tf>
-    <!-- Frame IDs -->
-    <odometry_frame>odom</odometry_frame>
+  <plugin name="gz::sim::systems::VelocityControl" filename="gz-sim-velocity-control-system">
+    <topic>/cmd_vel</topic>
+  </plugin>
+  <plugin name="gz::sim::systems::OdometryPublisher" filename="gz-sim-odometry-publisher-system">
+    <dimensions>3</dimensions>
+    <odom_frame>odom</odom_frame>
     <robot_base_frame>base_footprint</robot_base_frame>
-    <!-- Set odom covariance -->
-    <covariance_x>0.0001</covariance_x>
-    <covariance_y>0.0001</covariance_y>
-    <covariance_yaw>0.01</covariance_yaw>
+    <odom_topic>/odom</odom_topic>
+    <odom_publish_frequency>20</odom_publish_frequency>
   </plugin>
 </gazebo> 
 

@@ -174,17 +174,25 @@
  </gazebo> -->
 
 <!-- Gazebo plugin for planar move -->
-<!-- <gazebo>
+<gazebo>
   <plugin name="base_controller" filename="libros_gz_sim_planar_move.so">
-    <commandTopic>cmd_vel</commandTopic>
-    <odometryTopic>odom</odometryTopic>
-    <odometryFrame>odom</odometryFrame>
-    <odometryRate>20.0</odometryRate>
-    <robotBaseFrame>base_footprint</robotBaseFrame>
+    <ros>
+      <remapping>cmd_vel:=cmd_vel</remapping>
+      <remapping>odom:=odom</remapping>
+    </ros>
+    <update_rate>100</update_rate>
+    <publish_rate>20</publish_rate>
+    <publish_odom>true</publish_odom>
+    <publish_odom_tf>true</publish_odom_tf>
+    <odometry_frame>odom</odometry_frame>
+    <robot_base_frame>base_footprint</robot_base_frame>
+    <covariance_x>0.0001</covariance_x>
+    <covariance_y>0.0001</covariance_y>
+    <covariance_yaw>0.01</covariance_yaw>
   </plugin>
-</gazebo> -->
+</gazebo>
 
-<!-- Gazebo plugin for WPR -->
+<!-- OLD CUSTOM PLUGIN - DISABLED
 <gazebo>
   <plugin name="base_controller" filename="libwpr_plugin.so">
     <publishOdometryTf>true</publishOdometryTf>
@@ -195,6 +203,7 @@
     <robotBaseFrame>base_footprint</robotBaseFrame>
   </plugin>
 </gazebo>
+-->
 
 <!-- Gazebo plugin for hokuyo UTM-10 -->
 <gazebo reference="laser">

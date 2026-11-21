@@ -189,6 +189,8 @@ install(DIRECTORY config launch demo_launch worlds models meshes rviz src msg ma
 # Install Python executables
 install(PROGRAMS
   src/face_detector.py
+  src/robot_motion_sim.py
+  src/gazebo_model_controller.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

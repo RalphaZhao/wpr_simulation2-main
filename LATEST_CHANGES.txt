@@ -1,0 +1,10 @@
+35e738b - Add quick reference card for robot motion control
+d604256 - Add comprehensive robot motion complete guide
+5ebb336 - Complete WPV3 motion fix and add comprehensive documentation
+6eb1182 - Fix WPV3 robot motion: Enable planar_move plugin
+f603da3 - Add user-friendly robot motion fix documentation
+0102a3b - Add comprehensive documentation for robot motion fix
+d8c52da - Fix robot motion: Use planar_move plugin for Gazebo physics simulation
+3b6bf3d - Fix: Resolve robot sinking and obstacle generation issues
+eb29714 - Fix: Enable robot movement with ros_gz_bridge
+db024fc - Initial commit: wpr_simulation2 robot simulator
