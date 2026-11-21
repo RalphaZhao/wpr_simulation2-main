@@ -17,7 +17,7 @@
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -34,7 +34,7 @@ def generate_launch_description():
         'worlds',
         'wpb_simple.world'
     )
-
+    # Start Gazebo with the specified world
     gz_sim_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')
@@ -42,7 +42,7 @@ def generate_launch_description():
         launch_arguments={'gz_args': f'-r "{world}"'}.items()
     )
 
-    # Spawn wpv3 robot
+    # Spawn wpv3 robot    with Laser scan
     spawn_robot_cmd = Node(
             package='ros_gz_sim',
             namespace='',
@@ -53,7 +53,7 @@ def generate_launch_description():
                 '-name', 'wpv3',
                 '-x', '0.0',
                 '-y', '0.0',
-                '-z', '0.0',
+                '-z', '0.20',
             ],
             output='screen'
         )
@@ -79,8 +79,6 @@ def generate_launch_description():
                 '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
                 # Velocity commands - subscribe from ROS, publish to Gazebo
                 '/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-                # Robot pose - subscribe from Gazebo, publish to ROS for visualization
-                '/model/wpv3/pose[gz.msgs.Pose>geometry_msgs/msg/Pose',
             ]
         )
 
@@ -97,6 +95,7 @@ def generate_launch_description():
     # Add the commands to the launch description
     ld.add_action(gz_sim_cmd)
     ld.add_action(spawn_robot_cmd)
+    # ld.add_action(TimerAction(period=2.0, actions=[spawn_robot_cmd]))
     ld.add_action(ros_gz_bridge_cmd)
     ld.add_action(robot_motion_sim_cmd)
 

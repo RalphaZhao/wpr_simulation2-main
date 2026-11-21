@@ -18,8 +18,8 @@
   <!-- base -->
   <link name="base_link">
     <visual>
-      <geometry>
-        <mesh filename="package://wpv3_bringup/meshes/wpv3.dae" scale="1 1 1"/>
+      <geometry>models/wpv3.model
+        <mesh filename="package://wpr_simulation2/meshes/wpv3/wpv3.dae" scale="1 1 1"/>
       </geometry>
       <origin rpy = "1.57 0 -1.57" xyz = "0.22 .293 0"/>
     </visual>
